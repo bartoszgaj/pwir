@@ -4,7 +4,7 @@
 %Pętla pociągu gdy oczekuje on na wolny peron.
 waiting({Creator, Name, GetOutTime}) ->
   %Wysłanie wiadomości o przydzielenie peronu do stacji
-  Creator ! {self(), needPlatform},
+  Creator ! {self(), Name, needPlatform},
   receive
     %Stacja zwraca, że nie ma wolnej stacji
     {Creator, noPlatform} ->
@@ -18,7 +18,7 @@ waiting({Creator, Name, GetOutTime}) ->
 
 %Pociąg jest już na peronie i odlicza swój GetOutTime do 0.
 onPlatform({Creator, Name, GetOutTime, Platform}) ->
-  null.
+  io:format("Pociag ~p ~p wjechal na peron ~p~n",[Name, GetOutTime, Platform]).
 %TODO
 
 

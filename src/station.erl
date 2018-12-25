@@ -11,7 +11,7 @@ loop({Trains,Platforms}) ->
       %Utworzenie nowej instancji peronu
       PlatformPid = platform:start_link(PlatformNumber),
       %Dodanie peronu do listy którą przetrzymuje stacja
-      NewPlatforms = orddict:store(PlatformNumber,{PlatformNumber}, Platforms),
+      NewPlatforms = orddict:store(PlatformNumber,{PlatformNumber, PlatformPid}, Platforms),
       %Wysłanie odpowiedzi o sukcesie do procesu który wysłał wiadomość (funkcja add_platform/1)
       Pid ! {MsgRef, ok},
       %Ponowne wywołanie pętli głównej programu stacji z nową listą(orddict) peronów
@@ -39,18 +39,55 @@ loop({Trains,Platforms}) ->
 
     %Przypisanie pociąg -> wolny peronu/czekaj
     % (źródło -> train: funkcja/pętla waiting/1)
-    {TrainPid, needPlatform} ->
-      io:format("Pociag potrzebuje peron~n"),
-      %TODO
-      loop({Trains,Platforms})
+    {TrainPid, TrainName, needPlatform} ->
+      io:format("Pociag zglosil do stacji ze potrzebuje peron~n"),
+      %Zgarniamy listę pidów wszystkich peronów do listy z naszego orddict
+      PlatformsPids = orddict:fold(fun(Key,Platform,AccIn) -> [Platform|AccIn] end , [], Platforms),
+      io:format("Pidy znalezionych peronow ~p~n",[PlatformsPids]),
 
-      % FreePlatforms = checkFreePlatforms(Platforms),
-      % if FreePlatforms =:= []
-      %   TrainPid ! {self(), noPlatform};
-      % if FreePlatforms =/= []
-      %   TrainPid ! {self(), goOn, hd(FreePlatforms)}
-      % loop({Trains,Platforms})
+      %wywolujemy funkcje ktora znajdzie nasz peron i od razu go zarezerwuje
+      PlatformNumber = searchAndReserve(TrainPid, TrainName, PlatformsPids),
+      io:format("Numer znalezionego wolnego peronu ~p~n",[PlatformNumber]),
+
+      %jesli nie ma zadnych wolnych peronow, to wysylamy taka informacje do pociagu.
+      if PlatformNumber == allOccupied ->
+        TrainPid ! {self(), noPlatform},
+        io:format("Brak wolnego peronu dla pociagu~n");
+
+      %Jesli jest wolny peron, to wysylamy go do pociagu, zeby wiedzial gdzie jechac
+        PlatformNumber =/= allOccupied ->
+          io:format("Pociag jedzie na peron ~p~n",[PlatformNumber]),
+          TrainPid ! {self(), goOn, PlatformNumber}
+      end,
+      %Wywolujemy główną petle programu stacji
+      loop({Trains, Platforms})
+
+
+
+
   end.
+
+%Funkcja wyszukujaca pusty peron
+
+%Jesli lista peronow jest pusta, to zwracamy informacje ze wszystkie sa zajete
+searchAndReserve(TrainPid, TrainName, []) ->
+  allOccupied;
+
+searchAndReserve(TrainPid, TrainName, [{PlatformNumber, PlatformPid}|Rest]) ->
+  Ref = make_ref(),
+  %Wywylamy do instancji peronu informacje, ze potrzebny jest peron, zeby sprawdzic czy jest wolny
+  PlatformPid ! {self(), Ref, TrainName, platformNeeded},
+  receive
+    %jesli jest wolny, to zwracamy jego numer (jest on juz zajety dla naszego pociagu)
+    {Ref, ok} -> PlatformNumber;
+
+    %Jesli jest zajety, to wywolujemy funkcje searchAndReserve dla pozostalych w liscie
+    {MsgRef, occupied} ->
+      searchAndReserve(TrainPid, TrainName, Rest)
+  end.
+
+
+
 
 %Funkcje udostępniona na zewnątrz do wystartowania stacji
 %Spawnuje nową instancję init, która z koleji wywołuje loop/1 (główną pętlę programu stacji)
