@@ -17,9 +17,15 @@ waiting({Creator, Name, GetOutTime}) ->
   end.
 
 %Pociąg jest już na peronie i odlicza swój GetOutTime do 0.
-onPlatform({Creator, Name, GetOutTime, Platform}) ->
-  io:format("Pociag ~p ~p wjechal na peron ~p~n",[Name, GetOutTime, Platform]).
-%TODO
+onPlatform({Creator, Name, GetOutTime, Platform}) when GetOutTime /= 0 ->
+  io:format("Pociag ~p stoi na peronie ~p jeszcze: ~p sec~n",[Name, Platform, GetOutTime]), 
+  %Po 1s wywołuje ponownie funkcję onPlatform z o jeden mniejszym czasem	
+  timer:apply_after(1000, ?MODULE, onPlatform, [{Creator, Name, GetOutTime-1, Platform}]);
+
+%koniec czasu -- pociąg odjezdza z peronu 
+onPlatform({Creator, Name, GetOutTime, Platform}) when GetOutTime == 0 ->
+	io:format("Pociag ~p odjechal z peronu ~p~n", [Name, Platform]).
+	%TODO: pociag powinien sie usuwac z listy pociagow i platform znowu dodawany do listy dostepnych
 
 
 %Funkcje udostępniane na zewnątrz. Station używa ich do stworzenia instancji pociągu
