@@ -22,11 +22,15 @@ onPlatform({Creator, Name, GetOutTime, Platform}) when GetOutTime /= 0 ->
   %Po 1s wywołuje ponownie funkcję onPlatform z o jeden mniejszym czasem	
   timer:apply_after(1000, ?MODULE, onPlatform, [{Creator, Name, GetOutTime-1, Platform}]);
 
-%koniec czasu -- pociąg odjezdza z peronu 
+%koniec czasu -- pociąg odjezdza z peronu, peron znowu wolny
 onPlatform({Creator, Name, GetOutTime, Platform}) when GetOutTime == 0 ->
-	io:format("Pociag ~p odjechal z peronu ~p~n", [Name, Platform]).
-	%TODO: pociag powinien sie usuwac z listy pociagow i platform znowu dodawany do listy dostepnych
+	io:format("Pociag ~p odjezdza z peronu ~p~n", [Name, Platform]),
+  Creator ! {self(), Name, Platform, delTrain},
+  receive
+    {Creator, left} -> io:format("Pociąg odjechal")
+  end.
 
+%TODO: mozliwosc dodawania pociagow jak jakis juz wjechal na peron i sobie tam odlicza
 
 %Funkcje udostępniane na zewnątrz. Station używa ich do stworzenia instancji pociągu
 start(TrainName, GetOutTime) ->

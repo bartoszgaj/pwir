@@ -37,6 +37,24 @@ loop({Trains,Platforms}) ->
       %Ponowne wywołanie pętli głównej programu stacji z nową listą(orddict) pociągów
       loop({NewTrains, Platforms});
 
+    %Usuwanie pociagu
+    %(źródło -> train: funkcja onPlatform())
+    {TrainPid, TrainName, Platform, delTrain} ->
+      PPid = 0,
+      NewTrains = orddict:erase(TrainName, Trains), %usuwa pociag z listy pociagow
+      PlatformPid = orddict:find(Platform, Platforms), %znajdz pid peronu
+      if 
+        PlatformPid == error -> {error, noMatch}; %nie znaleziono tego peronu
+        true -> ok
+      end,
+      
+      %wysylanie do peronu wiadomosci o odjeździe
+      RetMsg = leave_platform(TrainName, element(2,(element(2,PlatformPid)))),
+      if 
+        RetMsg == ok -> TrainPid ! {self(), left}
+      end,
+      loop({NewTrains, Platforms});
+    
     %Przypisanie pociąg -> wolny peronu/czekaj
     % (źródło -> train: funkcja/pętla waiting/1)
     {TrainPid, TrainName, needPlatform} ->
@@ -86,7 +104,14 @@ searchAndReserve(TrainPid, TrainName, [{PlatformNumber, PlatformPid}|Rest]) ->
       searchAndReserve(TrainPid, TrainName, Rest)
   end.
 
-
+%Wyslanie wiadomosci do peronu o odjezdzie pociagu
+leave_platform(TrainName, PlatformPid) ->
+  Ref = make_ref(),
+  %Wywylamy do instancji peronu informacje, ze pociag odjezdza z peronu
+  PlatformPid ! {self(), Ref, TrainName, leave},
+  receive
+    {Ref, ok} -> ok
+  end.  
 
 
 %Funkcje udostępniona na zewnątrz do wystartowania stacji
