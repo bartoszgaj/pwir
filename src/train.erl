@@ -4,17 +4,41 @@
 %Pętla pociągu gdy oczekuje on na wolny peron.
 waiting({Creator, Name, GetOutTime}) ->
   %Wysłanie wiadomości o przydzielenie peronu do stacji
-  Creator ! {self(), Name, needPlatform},
+  Creator ! {self(), Name, GetOutTime, needPlatform},
   receive
     %Stacja zwraca, że nie ma wolnej stacji
-    {Creator, noPlatform} ->
-      %Ponowne wywołanie pętli waiting/1
-      waiting({Creator,Name, GetOutTime});
+    {Creator, noPlatform, NewRequests} -> 
+      io:format("No free platform~n");
     %Stacja zwraca peron, na który pociąg może wjechać
     {Creator, goOn, Platform} ->
       %Następuje zmiana pętli na onPlatform/1
       onPlatform({Creator, Name, GetOutTime, Platform})
   end.
+
+%Zarezerwuj i wjedz na peron --> pociag z kolejki
+getPlatform(Creator, {TrainPid, TrainName, TrainTime}, Queue ,Platform) ->
+    io:format("Im in getPlatform"),
+    Creator ! {self(),TrainPid, TrainName, TrainTime, Queue, Platform, update},
+    receive
+        {Creator, gotit} ->
+            io:format("GOT IT!"),
+            onPlatform({Creator, TrainName, TrainTime,Platform})
+    end.
+
+%Pobieranie kolejnych pociagow z kolejki
+getTrainInfo(Creator, NewRequests,Platform) ->
+    {{value, Train}, _} = queue:out(NewRequests),
+    {TrainPid, TrainName, TrainTime} = Train,
+    Requests = queue:drop(NewRequests),
+    io:format("~p, ~p", [TrainName, Requests]),
+    getPlatform(Creator, {TrainPid, TrainName, TrainTime}, Requests, Platform).
+
+%sprawdz czy kolejka do peronow jest pusta
+checkEmptyReq(Creator,Requests,Platform) ->
+    case queue:is_empty(Requests) of
+        false -> getTrainInfo(Creator,Requests,Platform);
+        true -> io:format("Request queue empty")
+    end.
 
 %Pociąg jest już na peronie i odlicza swój GetOutTime do 0.
 onPlatform({Creator, Name, GetOutTime, Platform}) when GetOutTime /= 0 ->
@@ -27,10 +51,8 @@ onPlatform({Creator, Name, GetOutTime, Platform}) when GetOutTime == 0 ->
 	io:format("Pociag ~p odjezdza z peronu ~p~n", [Name, Platform]),
   Creator ! {self(), Name, Platform, delTrain},
   receive
-    {Creator, left} -> io:format("Pociąg odjechal")
+    {Creator, left, Requests} -> checkEmptyReq(Creator,Requests,Platform)
   end.
-
-%TODO: mozliwosc dodawania pociagow jak jakis juz wjechal na peron i sobie tam odlicza
 
 %Funkcje udostępniane na zewnątrz. Station używa ich do stworzenia instancji pociągu
 start(TrainName, GetOutTime) ->

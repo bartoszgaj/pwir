@@ -20,6 +20,13 @@ loop({Station, Number, Trains}) ->
            %Ponownie wywoływana jest pętla główna peronu.
            loop({Station, Number, Trains})
       end;
+
+    %(źrodło -> stacja: wyslane z petli loop po zgloszeniu zajmowania peronu przez pociag z kolejki
+     {Pid, MsgRef, TrainName, reqPlatform} ->
+        io:format("Im in platform"),
+        Pid ! {MsgRef, ok},
+        loop({Station, Number, [TrainName|Trains]});   
+
     %(źródło -> stacja: wysłane z pętli loop po zgłoszeniu odjazdu z peronu od instancji pociągu)
     {Pid, MsgRef, TrainName, leave} ->
       %Wysłanie odpowiedzi OK
