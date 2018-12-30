@@ -21,8 +21,8 @@ loop({Station, Number, Trains}) ->
            loop({Station, Number, Trains})
       end;
     %(źródło -> stacja: wysłane z pętli loop po zgłoszeniu odjazdu z peronu od instancji pociągu)
-    {Pid, MsgRef, leave} ->
-      %Wywłanie odpowiedzi OK
+    {Pid, MsgRef, TrainName, leave} ->
+      %Wysłanie odpowiedzi OK
       Pid ! {MsgRef, ok},
       %Peron ponownie staje się pusty.
       loop({Station, Number, []})

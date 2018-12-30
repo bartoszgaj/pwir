@@ -4,7 +4,7 @@
 %Pętla pociągu gdy oczekuje on na wolny peron.
 waiting({Creator, Name, GetOutTime}) ->
   %Wysłanie wiadomości o przydzielenie peronu do stacji
-  Creator ! {self(), needPlatform},
+  Creator ! {self(), Name, needPlatform},
   receive
     %Stacja zwraca, że nie ma wolnej stacji
     {Creator, noPlatform} ->
@@ -17,10 +17,20 @@ waiting({Creator, Name, GetOutTime}) ->
   end.
 
 %Pociąg jest już na peronie i odlicza swój GetOutTime do 0.
-onPlatform({Creator, Name, GetOutTime, Platform}) ->
-  null.
-%TODO
+onPlatform({Creator, Name, GetOutTime, Platform}) when GetOutTime /= 0 ->
+  io:format("Pociag ~p stoi na peronie ~p jeszcze: ~p sec~n",[Name, Platform, GetOutTime]), 
+  %Po 1s wywołuje ponownie funkcję onPlatform z o jeden mniejszym czasem	
+  timer:apply_after(1000, ?MODULE, onPlatform, [{Creator, Name, GetOutTime-1, Platform}]);
 
+%koniec czasu -- pociąg odjezdza z peronu, peron znowu wolny
+onPlatform({Creator, Name, GetOutTime, Platform}) when GetOutTime == 0 ->
+	io:format("Pociag ~p odjezdza z peronu ~p~n", [Name, Platform]),
+  Creator ! {self(), Name, Platform, delTrain},
+  receive
+    {Creator, left} -> io:format("Pociąg odjechal")
+  end.
+
+%TODO: mozliwosc dodawania pociagow jak jakis juz wjechal na peron i sobie tam odlicza
 
 %Funkcje udostępniane na zewnątrz. Station używa ich do stworzenia instancji pociągu
 start(TrainName, GetOutTime) ->
