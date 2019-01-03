@@ -107,8 +107,6 @@ addRequest(TrainInfo, Requests) ->
     queue:in(TrainInfo, Requests).
 
 
-%Funkcja wyszukujaca pusty peron
-
 %Jesli lista peronow jest pusta, to zwracamy informacje ze wszystkie sa zajete
 searchAndReserve(TrainPid, TrainName, []) ->
   allOccupied;
