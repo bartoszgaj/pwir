@@ -11,7 +11,7 @@ for(N,Term) when N > 0 ->
 
 %generuje losowa ilosc peronow 0-6
 platformNo() ->
-    crypto:rand_uniform(1,2).
+    crypto:rand_uniform(1,6).
 
 %wybiera i dodaje losowa ilosc peronow z przedzialu 0-6
 generate_platforms() ->

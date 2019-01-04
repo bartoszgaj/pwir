@@ -75,7 +75,7 @@ init2(Server,Frame) ->
   loop2(Wx).
 
 make_window2(Server , Frame, PlNo) ->
-  End_Button = wxButton:new(Frame, ?wxID_STOP, [{label, "End simulation"}, {pos, {300,70}}]),
+  End_Button = wxButton:new(Frame, 3, [{label, "End simulation"}, {pos, {500,50}}]),
   Platform6 = [{6, wxStaticText:new(Frame, 0, "Peron 6", [{pos, {200, 350}}])}],
   Platform5 = [{5, wxStaticText:new(Frame, 0, "Peron 5", [{pos, {200, 300}}])}|Platform6],
   Platform4 = [{4, wxStaticText:new(Frame, 0, "Peron 4", [{pos, {200, 250}}])}|Platform5],
@@ -102,12 +102,19 @@ loop2(Wx) ->
         wxWindow:destroy(Frame),
         ok,
         loop2(Wx);
+
+    #wx{id = 3, event=#wxCommand{type = command_button_clicked}} ->
+        % TODO STOP SIMULATION
+        loop2(Wx);
+
+
     {Station, Platform, TrainName, Request, onPlatform} ->
       {Key, Result} = lists:keyfind(Platform, 1, PlatformsView),
       PlatformText = string:concat(string:concat("Peron ", integer_to_list(Platform)),"\n"),
       wxStaticText:setLabel(Result, string:concat(PlatformText, TrainName)),
       WaitingText = "Oczekujace \n",
-      % wxStaticText:setLabel(RequestsView, string:concat(WaitingText, queue:to_list(Request))),
+      TrainsText = getTrainsFromList(queue:to_list(Request)),
+      wxStaticText:setLabel(RequestsView, string:concat(WaitingText, TrainsText)),
       loop2(Wx);
 
     {Station, Platform, left} ->
@@ -117,7 +124,8 @@ loop2(Wx) ->
 
       {Station, TrainName, Request, waiting} ->
         WaitingText = "Oczekujace \n",
-        % wxStaticText:setLabel(RequestsView, string:concat(WaitingText, queue:to_list(Request))),
+        TrainsText = getTrainsFromList(queue:to_list(Request)),
+        wxStaticText:setLabel(RequestsView, string:concat(WaitingText, TrainsText)),
         loop2(Wx)
     end.
 
@@ -125,3 +133,9 @@ loop2(Wx) ->
 user() ->
     {ok, [X]} = io:fread("Number of platforms: ","~d"),
     X.
+
+getTrainsFromList([]) ->
+  [];
+
+getTrainsFromList([{_,TrainName,_}|Rest]) ->
+  [string:concat(TrainName, "\n")| getTrainsFromList(Rest)].
