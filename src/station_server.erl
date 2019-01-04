@@ -84,26 +84,42 @@ make_window2(Server , Frame, PlNo) ->
   Platform1 = [{1, wxStaticText:new(Frame, 0, "Peron 1", [{pos, {200, 100}}])}|Platform2],
   PlatformsView = Platform1,
 
+  RequestsView = wxStaticText:new(Frame, 0, "Oczekujące", [{pos, {500, 350}}]),
 
   wxFrame:show(Frame),
 
-  wxFrame:connect(Frame, close_window),
-  wxButton:connect(End_Button, command_button_clicked),
+  % wxFrame:connect(Frame, close_window),
+  % wxButton:connect(End_Button, command_button_clicked),
   io:format("TEST"),
   % {Server, Frame, End_Button, Time_Text, ClientsR, ClientsS}.
-  {Server, Frame, End_Button, PlatformsView}.
+  {Server, Frame, End_Button, PlatformsView, RequestsView}.
 
 loop2(Wx) ->
-  {_, Frame, Auto_Button, Manual_Button} = Wx,
+  {_, Frame, End_Button, PlatformsView, RequestsView} = Wx,
   receive
     #wx{event=#wxClose{}} ->
         io:format("--closing window ~p-- ~n",[self()]),
         wxWindow:destroy(Frame),
-        ok
+        ok,
+        loop2(Wx);
+    {Station, Platform, TrainName, Request, onPlatform} ->
+      {Key, Result} = lists:keyfind(Platform, 1, PlatformsView),
+      PlatformText = string:concat(string:concat("Peron ", integer_to_list(Platform)),"\n"),
+      wxStaticText:setLabel(Result, string:concat(PlatformText, TrainName)),
+      WaitingText = "Oczekujace \n",
+      % wxStaticText:setLabel(RequestsView, string:concat(WaitingText, queue:to_list(Request))),
+      loop2(Wx);
 
+    {Station, Platform, left} ->
+      {Key, Result} = lists:keyfind(Platform, 1, PlatformsView),
+      wxStaticText:setLabel(Result, string:concat("Peron ", integer_to_list(Platform))),
+      loop2(Wx);
 
-  end.
-
+      {Station, TrainName, Request, waiting} ->
+        WaitingText = "Oczekujace \n",
+        % wxStaticText:setLabel(RequestsView, string:concat(WaitingText, queue:to_list(Request))),
+        loop2(Wx)
+    end.
 
 %TODO
 user() ->

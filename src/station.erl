@@ -53,6 +53,10 @@ loop({Trains,Platforms,Requests}, GuiPID) ->
       if
         RetMsg == ok -> TrainPid ! {self(), left, Requests}
       end,
+
+      % GUI MESSAGE TRAIN LEFT
+      GuiPID ! {self(), Platform, left},
+
       loop({NewTrains, Platforms, Requests}, GuiPID);
 
     %Przypisanie pociagu z kolejki do konkretnego peronu
@@ -69,6 +73,9 @@ loop({Trains,Platforms,Requests}, GuiPID) ->
         if
             RetMsg == ok -> Pid ! {self(), gotit} %odeslij pociagowi ok
         end,
+
+        % Gui MESSAGE ON PLATFORM
+        GuiPID ! {self(), Platform, TrainName, Requests, onPlatform},
         loop({Trains, Platforms, Queue}, GuiPID);
 
 
@@ -89,13 +96,19 @@ loop({Trains,Platforms,Requests}, GuiPID) ->
         NewRequests = addRequest({TrainPid, TrainName, TrainTime}, Requests),
         io:format("~p", [NewRequests]),
         TrainPid ! {self(), noPlatform, NewRequests},
-        io:format("Brak wolnego peronu dla pociagu~n");
+        io:format("Brak wolnego peronu dla pociagu~n"),
+        % GUI MESSAGE NO FREE PLATFORM
+        GuiPID ! {self(), TrainName, Requests, waiting};
+
 
       %Jesli jest wolny peron, to wysylamy go do pociagu, zeby wiedzial gdzie jechac
         PlatformNumber =/= allOccupied ->
           NewRequests = Requests,
           io:format("Pociag jedzie na peron ~p~n",[PlatformNumber]),
-          TrainPid ! {self(), goOn, PlatformNumber}
+          % GUI MESSAGE ON PLATFORM
+
+          TrainPid ! {self(), goOn, PlatformNumber},
+          GuiPID ! {self(), PlatformNumber, TrainName, Requests, onPlatform}
       end,
       %Wywolujemy główną petle programu stacji
       loop({Trains, Platforms, NewRequests}, GuiPID)
