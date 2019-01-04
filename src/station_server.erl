@@ -34,8 +34,8 @@ init() ->
 
   make_window1(Server) ->
       Frame = wxFrame:new(Server, -1, "Train station simulation", [{size,{1000,500}}]),
-      Auto_Button = wxButton:new(Frame, ?wxID_STOP, [{label, "Auto simulation"}, {pos, {300,70}}]),
-      Manual_Button = wxButton:new(Frame, ?wxID_STOP, [{label, "Manual simulation"}, {pos, {700,70}}]),
+      Auto_Button = wxButton:new(Frame, 1, [{label, "Auto simulation"}, {pos, {300,70}}]),
+      Manual_Button = wxButton:new(Frame, 2, [{label, "Manual simulation"}, {pos, {700,70}}]),
 
       wxFrame:createStatusBar(Frame),
       wxFrame:show(Frame),
@@ -52,8 +52,14 @@ init() ->
         #wx{event=#wxClose{}} ->
             io:format("--closing window ~p-- ~n",[self()]),
             wxWindow:destroy(Frame),
-            ok
-        end.
+            ok;
+        #wx{id = 1, event=#wxCommand{type = command_button_clicked}} ->
+            auto();
+
+        #wx{id = 2, event=#wxCommand{type = command_button_clicked}} ->
+            user()
+
+      end.
 
 make_window2(Server) ->
   Frame = wxFrame:new(Server, -1, "Train station simulation", [{size,{1000,500}}]),
