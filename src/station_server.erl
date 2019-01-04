@@ -20,6 +20,10 @@ printxy({X,Y,Msg}) ->
 
 %init the app
 init() ->
+  init1().
+
+
+init1() ->
     print({clear}),
     print({printxy, 10, 3, '+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+'}),
     print({printxy, 10, 4, '|S|t|a|c|j|a| |k|o|l|e|j|o|w|a|'}),
@@ -47,21 +51,30 @@ init() ->
       {Server, Frame, Auto_Button, Manual_Button}.
 
     loop1(Wx) ->
-      {_, Frame, Auto_Button, Manual_Button} = Wx,
+      {Server, Frame, Auto_Button, Manual_Button} = Wx,
       receive
         #wx{event=#wxClose{}} ->
             io:format("--closing window ~p-- ~n",[self()]),
             wxWindow:destroy(Frame),
             ok;
         #wx{id = 1, event=#wxCommand{type = command_button_clicked}} ->
-            auto();
+            wxWindow:destroy(Auto_Button),
+            wxWindow:destroy(Manual_Button),
+            init2(Server);
 
         #wx{id = 2, event=#wxCommand{type = command_button_clicked}} ->
             user()
 
       end.
 
-make_window2(Server) ->
+init2(Server) ->
+  station:start(),
+  PlNo = station_generator:generate_platforms(),
+  Wx = make_window2(Server, PlNo),
+  GeneratorPid = station_generator:start_link(),
+  loop2(Wx).
+
+make_window2(Server ,PlNo) ->
   Frame = wxFrame:new(Server, -1, "Train station simulation", [{size,{1000,500}}]),
   End_Button = wxButton:new(Frame, ?wxID_STOP, [{label, "End simulation"}, {pos, {300,70}}]),
   Platform6 = [{6, wxStaticText:new(Frame, 0, "Peron 6", [{pos, {200, 350}}])}],
@@ -81,17 +94,17 @@ make_window2(Server) ->
   % {Server, Frame, End_Button, Time_Text, ClientsR, ClientsS}.
   {Server, Frame, End_Button, PlatformsView}.
 
-loop() ->
-    station_generator:generate_train(),
-    timer:apply_after(3000, ?MODULE, loop, []).
-%tu sie powinno odpalac tez gui
-%tryb automatyczny: generuje losowa ilosc peronow z przedzialu 0-6
-%oraz co sekunde generuje pociag o losowej 4-literowej nazwie i losowym czasie
-%odjazdu z przedzialu 0-15s
-auto() ->
-    station:start(),
-    PlNo = station_generator:generate_platforms(),
-    loop().
+loop2(Wx) ->
+  {_, Frame, Auto_Button, Manual_Button} = Wx,
+  receive
+    #wx{event=#wxClose{}} ->
+        io:format("--closing window ~p-- ~n",[self()]),
+        wxWindow:destroy(Frame),
+        ok
+
+
+  end.
+
 
 %TODO
 user() ->

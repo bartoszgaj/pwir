@@ -1,5 +1,5 @@
 -module(station_generator).
--export([generate_train/0, generate_platforms/0]).
+-export([generate_train/0, generate_platforms/0, start_link/0, start1/0, init/0, loop/0]).
 -import(station, [start/0, add_platform/1, add_train/2]).
 
 for(0,_) ->
@@ -38,3 +38,20 @@ trainName() ->
 %generuje pociag o losowej nazwie i czasie
 generate_train() ->
     station:add_train(trainName(), trainTime()).
+
+start1() ->
+  io:format("TESTStart"),
+  spawn(?MODULE, init, []).
+
+start_link() ->
+  io:format("TESTSpawn"),
+  spawn_link(?MODULE, init, []).
+
+init() ->
+  io:format("TEST1"),
+  loop().
+
+loop() ->
+    io:format("TEST2"),
+    generate_train(),
+    timer:apply_after(3000, ?MODULE, loop, []).
