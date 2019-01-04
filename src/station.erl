@@ -3,7 +3,7 @@
 
 %Główna pętla programu stacji.
 %Zawiera listę(orddict) pociągów i listę peronów.
-loop({Trains,Platforms}) ->
+loop({Trains,Platforms,Requests}, GuiPID) ->
   receive
     %Dodawania peronu
     %(źródło -> shell: funkcja add_platform/1)
@@ -15,7 +15,7 @@ loop({Trains,Platforms}) ->
       %Wysłanie odpowiedzi o sukcesie do procesu który wysłał wiadomość (funkcja add_platform/1)
       Pid ! {MsgRef, ok},
       %Ponowne wywołanie pętli głównej programu stacji z nową listą(orddict) peronów
-      loop({Trains, NewPlatforms});
+      loop({Trains, NewPlatforms, Requests}, GuiPID);
 
     %Wypisywanie wszystkich peronów na stacji (do debugowania)
     % (źródło -> shell: funkcja get_all_platforms/1)
@@ -23,7 +23,7 @@ loop({Trains,Platforms}) ->
       %Zwrocenie w odpowiedzi listy wszystkich peronów
       Pid ! {MsgRef, Platforms},
       %Ponowne wywołanie pętli głównej programu stacji
-      loop({Trains,Platforms});
+      loop({Trains,Platforms, Requests}, GuiPID);
 
     %Dodawania pociągu
     % (źródło -> shell: funkcja add_train/2)
@@ -35,7 +35,7 @@ loop({Trains,Platforms}) ->
       %Wysłanie odpowiedzi o sukcesie do procesu który wysłał wiadomość (funkcja add_train/2)
       Pid ! {MsgRef, ok},
       %Ponowne wywołanie pętli głównej programu stacji z nową listą(orddict) pociągów
-      loop({NewTrains, Platforms});
+      loop({NewTrains, Platforms, Requests}, GuiPID);
 
     %Usuwanie pociagu
     %(źródło -> train: funkcja onPlatform())
@@ -43,21 +43,45 @@ loop({Trains,Platforms}) ->
       PPid = 0,
       NewTrains = orddict:erase(TrainName, Trains), %usuwa pociag z listy pociagow
       PlatformPid = orddict:find(Platform, Platforms), %znajdz pid peronu
-      if 
+      if
         PlatformPid == error -> {error, noMatch}; %nie znaleziono tego peronu
         true -> ok
       end,
-      
+
       %wysylanie do peronu wiadomosci o odjeździe
       RetMsg = leave_platform(TrainName, element(2,(element(2,PlatformPid)))),
-      if 
-        RetMsg == ok -> TrainPid ! {self(), left}
+      if
+        RetMsg == ok -> TrainPid ! {self(), left, Requests}
       end,
-      loop({NewTrains, Platforms});
-    
+
+      % GUI MESSAGE TRAIN LEFT
+      GuiPID ! {self(), Platform, left},
+
+      loop({NewTrains, Platforms, Requests}, GuiPID);
+
+    %Przypisanie pociagu z kolejki do konkretnego peronu
+    {Pid, TrainPid, TrainName, TrainTime, Queue, Platform, update} ->
+        io:format("Im in station:update YO"),
+        PlatformPid = orddict:find(Platform, Platforms), %znajdz pid peronu
+        if
+            PlatformPid == error -> {error, noMatch}; %nie znaleziono
+            true -> ok
+        end,
+
+        %wyslij info do peronu ze go zajmuje
+        RetMsg = reserve_platform(TrainName, element(2,(element(2,PlatformPid)))),
+        if
+            RetMsg == ok -> Pid ! {self(), gotit} %odeslij pociagowi ok
+        end,
+
+        % Gui MESSAGE ON PLATFORM
+        GuiPID ! {self(), Platform, TrainName, Queue, onPlatform},
+        loop({Trains, Platforms, Queue}, GuiPID);
+
+
     %Przypisanie pociąg -> wolny peronu/czekaj
     % (źródło -> train: funkcja/pętla waiting/1)
-    {TrainPid, TrainName, needPlatform} ->
+    {TrainPid, TrainName, TrainTime, needPlatform} ->
       io:format("Pociag zglosil do stacji ze potrzebuje peron~n"),
       %Zgarniamy listę pidów wszystkich peronów do listy z naszego orddict
       PlatformsPids = orddict:fold(fun(Key,Platform,AccIn) -> [Platform|AccIn] end , [], Platforms),
@@ -69,23 +93,32 @@ loop({Trains,Platforms}) ->
 
       %jesli nie ma zadnych wolnych peronow, to wysylamy taka informacje do pociagu.
       if PlatformNumber == allOccupied ->
-        TrainPid ! {self(), noPlatform},
-        io:format("Brak wolnego peronu dla pociagu~n");
+        NewRequests = addRequest({TrainPid, TrainName, TrainTime}, Requests),
+        % io:format("~p", [NewRequests]),
+        TrainPid ! {self(), noPlatform, NewRequests},
+        io:format("Brak wolnego peronu dla pociagu~n"),
+        % GUI MESSAGE NO FREE PLATFORM
+        GuiPID ! {self(), TrainName, NewRequests, waiting};
+
 
       %Jesli jest wolny peron, to wysylamy go do pociagu, zeby wiedzial gdzie jechac
         PlatformNumber =/= allOccupied ->
+          NewRequests = Requests,
           io:format("Pociag jedzie na peron ~p~n",[PlatformNumber]),
-          TrainPid ! {self(), goOn, PlatformNumber}
+          % GUI MESSAGE ON PLATFORM
+
+          TrainPid ! {self(), goOn, PlatformNumber},
+          GuiPID ! {self(), PlatformNumber, TrainName, NewRequests, onPlatform}
       end,
       %Wywolujemy główną petle programu stacji
-      loop({Trains, Platforms})
-
-
-
+      loop({Trains, Platforms, NewRequests}, GuiPID)
 
   end.
 
-%Funkcja wyszukujaca pusty peron
+%Funkcja dodajaca pociag do kolejki oczekujacych na wolny pociag
+addRequest(TrainInfo, Requests) ->
+    queue:in(TrainInfo, Requests).
+
 
 %Jesli lista peronow jest pusta, to zwracamy informacje ze wszystkie sa zajete
 searchAndReserve(TrainPid, TrainName, []) ->
@@ -104,6 +137,14 @@ searchAndReserve(TrainPid, TrainName, [{PlatformNumber, PlatformPid}|Rest]) ->
       searchAndReserve(TrainPid, TrainName, Rest)
   end.
 
+%Wyslanie wiadomosci do peronu o zajeciu go przez pociag z kolejki
+reserve_platform(TrainName, PlatformPid) ->
+    Ref = make_ref(),
+    PlatformPid ! {self(), Ref, TrainName, reqPlatform},
+    receive
+        {Ref, ok} -> ok
+    end.
+
 %Wyslanie wiadomosci do peronu o odjezdzie pociagu
 leave_platform(TrainName, PlatformPid) ->
   Ref = make_ref(),
@@ -111,21 +152,21 @@ leave_platform(TrainName, PlatformPid) ->
   PlatformPid ! {self(), Ref, TrainName, leave},
   receive
     {Ref, ok} -> ok
-  end.  
+  end.
 
 
 %Funkcje udostępniona na zewnątrz do wystartowania stacji
 %Spawnuje nową instancję init, która z koleji wywołuje loop/1 (główną pętlę programu stacji)
-start() ->
-  register(?MODULE, Pid=spawn(?MODULE, init, [])),
+start(GuiPID) ->
+  register(?MODULE, Pid=spawn(?MODULE, init, [GuiPID])),
   Pid.
 
-start_link() ->
-  register(?MODULE, Pid=spawn_link(?MODULE, init, [])),
+start_link(GuiPID) ->
+  register(?MODULE, Pid=spawn_link(?MODULE, init, [GuiPID])),
   Pid.
 
-init() ->
-  loop({Trains = orddict:new(), Platforms = orddict:new()}).
+init(GuiPID) ->
+  loop({Trains = orddict:new(), Platforms = orddict:new(), Requests = queue:new()}, GuiPID).
 
 
 %Funkcje udostępniane zna zewnątrz. Tak naprawdę tylko przesyłają odpowiednie wiadomości do loop/1
