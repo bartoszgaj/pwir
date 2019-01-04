@@ -3,7 +3,7 @@
 
 %Główna pętla programu stacji.
 %Zawiera listę(orddict) pociągów i listę peronów.
-loop({Trains,Platforms,Requests}) ->
+loop({Trains,Platforms,Requests}, GuiPID) ->
   receive
     %Dodawania peronu
     %(źródło -> shell: funkcja add_platform/1)
@@ -15,7 +15,7 @@ loop({Trains,Platforms,Requests}) ->
       %Wysłanie odpowiedzi o sukcesie do procesu który wysłał wiadomość (funkcja add_platform/1)
       Pid ! {MsgRef, ok},
       %Ponowne wywołanie pętli głównej programu stacji z nową listą(orddict) peronów
-      loop({Trains, NewPlatforms, Requests});
+      loop({Trains, NewPlatforms, Requests}, GuiPID);
 
     %Wypisywanie wszystkich peronów na stacji (do debugowania)
     % (źródło -> shell: funkcja get_all_platforms/1)
@@ -23,7 +23,7 @@ loop({Trains,Platforms,Requests}) ->
       %Zwrocenie w odpowiedzi listy wszystkich peronów
       Pid ! {MsgRef, Platforms},
       %Ponowne wywołanie pętli głównej programu stacji
-      loop({Trains,Platforms, Requests});
+      loop({Trains,Platforms, Requests}, GuiPID);
 
     %Dodawania pociągu
     % (źródło -> shell: funkcja add_train/2)
@@ -35,7 +35,7 @@ loop({Trains,Platforms,Requests}) ->
       %Wysłanie odpowiedzi o sukcesie do procesu który wysłał wiadomość (funkcja add_train/2)
       Pid ! {MsgRef, ok},
       %Ponowne wywołanie pętli głównej programu stacji z nową listą(orddict) pociągów
-      loop({NewTrains, Platforms, Requests});
+      loop({NewTrains, Platforms, Requests}, GuiPID);
 
     %Usuwanie pociagu
     %(źródło -> train: funkcja onPlatform())
@@ -43,24 +43,24 @@ loop({Trains,Platforms,Requests}) ->
       PPid = 0,
       NewTrains = orddict:erase(TrainName, Trains), %usuwa pociag z listy pociagow
       PlatformPid = orddict:find(Platform, Platforms), %znajdz pid peronu
-      if 
+      if
         PlatformPid == error -> {error, noMatch}; %nie znaleziono tego peronu
         true -> ok
       end,
-      
+
       %wysylanie do peronu wiadomosci o odjeździe
       RetMsg = leave_platform(TrainName, element(2,(element(2,PlatformPid)))),
-      if 
+      if
         RetMsg == ok -> TrainPid ! {self(), left, Requests}
       end,
-      loop({NewTrains, Platforms, Requests});
+      loop({NewTrains, Platforms, Requests}, GuiPID);
 
     %Przypisanie pociagu z kolejki do konkretnego peronu
     {Pid, TrainPid, TrainName, TrainTime, Queue, Platform, update} ->
         io:format("Im in station:update YO"),
         PlatformPid = orddict:find(Platform, Platforms), %znajdz pid peronu
-        if 
-            PlatformPid == error -> {error, noMatch}; %nie znaleziono 
+        if
+            PlatformPid == error -> {error, noMatch}; %nie znaleziono
             true -> ok
         end,
 
@@ -69,7 +69,7 @@ loop({Trains,Platforms,Requests}) ->
         if
             RetMsg == ok -> Pid ! {self(), gotit} %odeslij pociagowi ok
         end,
-        loop({Trains, Platforms, Queue});
+        loop({Trains, Platforms, Queue}, GuiPID);
 
 
     %Przypisanie pociąg -> wolny peronu/czekaj
@@ -98,7 +98,7 @@ loop({Trains,Platforms,Requests}) ->
           TrainPid ! {self(), goOn, PlatformNumber}
       end,
       %Wywolujemy główną petle programu stacji
-      loop({Trains, Platforms, NewRequests})
+      loop({Trains, Platforms, NewRequests}, GuiPID)
 
   end.
 
@@ -139,21 +139,21 @@ leave_platform(TrainName, PlatformPid) ->
   PlatformPid ! {self(), Ref, TrainName, leave},
   receive
     {Ref, ok} -> ok
-  end.  
+  end.
 
 
 %Funkcje udostępniona na zewnątrz do wystartowania stacji
 %Spawnuje nową instancję init, która z koleji wywołuje loop/1 (główną pętlę programu stacji)
-start() ->
-  register(?MODULE, Pid=spawn(?MODULE, init, [])),
+start(GuiPID) ->
+  register(?MODULE, Pid=spawn(?MODULE, init, [GuiPID])),
   Pid.
 
-start_link() ->
-  register(?MODULE, Pid=spawn_link(?MODULE, init, [])),
+start_link(GuiPID) ->
+  register(?MODULE, Pid=spawn_link(?MODULE, init, [GuiPID])),
   Pid.
 
-init() ->
-  loop({Trains = orddict:new(), Platforms = orddict:new(), Requests = queue:new()}).
+init(GuiPID) ->
+  loop({Trains = orddict:new(), Platforms = orddict:new(), Requests = queue:new()}, GuiPID).
 
 
 %Funkcje udostępniane zna zewnątrz. Tak naprawdę tylko przesyłają odpowiednie wiadomości do loop/1

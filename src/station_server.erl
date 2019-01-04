@@ -2,7 +2,7 @@
 -compile(export_all).
 -include_lib("wx/include/wx.hrl").
 %-include_lib("wx/include/wx.hrl").
--import(station, [start/0]).
+-import(station, [start/1]).
 -import(station_generator, [generate_train/0, generate_platforms/0]).
 
 %idz kursorem do x,y
@@ -60,22 +60,21 @@ init1() ->
         #wx{id = 1, event=#wxCommand{type = command_button_clicked}} ->
             wxWindow:destroy(Auto_Button),
             wxWindow:destroy(Manual_Button),
-            init2(Server);
+            init2(Server,Frame);
 
         #wx{id = 2, event=#wxCommand{type = command_button_clicked}} ->
             user()
 
       end.
 
-init2(Server) ->
-  station:start(),
+init2(Server,Frame) ->
+  station:start(self()),
   PlNo = station_generator:generate_platforms(),
-  Wx = make_window2(Server, PlNo),
+  Wx = make_window2(Server, Frame, PlNo),
   GeneratorPid = station_generator:start_link(),
   loop2(Wx).
 
-make_window2(Server ,PlNo) ->
-  Frame = wxFrame:new(Server, -1, "Train station simulation", [{size,{1000,500}}]),
+make_window2(Server , Frame, PlNo) ->
   End_Button = wxButton:new(Frame, ?wxID_STOP, [{label, "End simulation"}, {pos, {300,70}}]),
   Platform6 = [{6, wxStaticText:new(Frame, 0, "Peron 6", [{pos, {200, 350}}])}],
   Platform5 = [{5, wxStaticText:new(Frame, 0, "Peron 5", [{pos, {200, 300}}])}|Platform6],
@@ -85,7 +84,7 @@ make_window2(Server ,PlNo) ->
   Platform1 = [{1, wxStaticText:new(Frame, 0, "Peron 1", [{pos, {200, 100}}])}|Platform2],
   PlatformsView = Platform1,
 
-  wxFrame:createStatusBar(Frame),
+
   wxFrame:show(Frame),
 
   wxFrame:connect(Frame, close_window),
