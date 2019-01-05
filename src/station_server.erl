@@ -63,10 +63,13 @@ init1() ->
             init2(Server,Frame);
 
         #wx{id = 2, event=#wxCommand{type = command_button_clicked}} ->
-            user()
+            wxWindow:destroy(Auto_Button),
+            wxWindow:destroy(Manual_Button),            
+            user(Server, Frame)
 
       end.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% AUTO %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 init2(Server,Frame) ->
   station:start(self()),
   PlNo = station_generator:generate_platforms(),
@@ -105,6 +108,7 @@ loop2(Wx) ->
 
     #wx{id = 3, event=#wxCommand{type = command_button_clicked}} ->
         % TODO STOP SIMULATION
+        
         loop2(Wx);
 
 
@@ -128,12 +132,67 @@ loop2(Wx) ->
         wxStaticText:setLabel(RequestsView, string:concat(WaitingText, TrainsText)),
         loop2(Wx)
     end.
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%USER%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %TODO
-user() ->
-    {ok, [X]} = io:fread("Number of platforms: ","~d"),
-    X.
+user(Server, Frame) ->
+    {ok, [PlNo]} = io:fread("Number of platforms: ","~d"),
+    station:start(self()),
+    Pl = station_generator:make_platforms(PlNo),
+    Wx = make_window3(Server, Frame, PlNo),
+    UserPid = station_generator:start_link_user(),
+    loop3(Wx).
 
+make_window3(Server , Frame, PlNo) ->
+  End_Button = wxButton:new(Frame, 3, [{label, "End simulation"}, {pos, {500,50}}]),
+  Platform6 = [{6, wxStaticText:new(Frame, 0, "Peron 6", [{pos, {200, 350}}])}],
+  Platform5 = [{5, wxStaticText:new(Frame, 0, "Peron 5", [{pos, {200, 300}}])}|Platform6],
+  Platform4 = [{4, wxStaticText:new(Frame, 0, "Peron 4", [{pos, {200, 250}}])}|Platform5],
+  Platform3 = [{3, wxStaticText:new(Frame, 0, "Peron 3", [{pos, {200, 200}}])}|Platform4],
+  Platform2 = [{2, wxStaticText:new(Frame, 0, "Peron 2", [{pos, {200, 150}}])}|Platform3],
+  Platform1 = [{1, wxStaticText:new(Frame, 0, "Peron 1", [{pos, {200, 100}}])}|Platform2],
+  PlatformsView = Platform1,
+
+  RequestsView = wxStaticText:new(Frame, 0, "Oczekujące", [{pos, {500, 350}}]),
+
+  wxFrame:show(Frame),
+  {Server, Frame, End_Button, PlatformsView, RequestsView}.
+
+loop3(Wx) ->
+  {_, Frame, End_Button, PlatformsView, RequestsView} = Wx,
+  receive
+    #wx{event=#wxClose{}} ->
+        io:format("--closing window ~p-- ~n",[self()]),
+        wxWindow:destroy(Frame),
+        ok,
+        loop3(Wx);
+
+    #wx{id = 3, event=#wxCommand{type = command_button_clicked}} ->
+        % TODO STOP SIMULATION      
+        loop3(Wx);
+
+
+    {Station, Platform, TrainName, Request, onPlatform} ->
+      {Key, Result} = lists:keyfind(Platform, 1, PlatformsView),
+      PlatformText = string:concat(string:concat("Peron ", integer_to_list(Platform)),"\n"),
+      wxStaticText:setLabel(Result, string:concat(PlatformText, TrainName)),
+      WaitingText = "Oczekujace \n",
+      TrainsText = getTrainsFromList(queue:to_list(Request)),
+      wxStaticText:setLabel(RequestsView, string:concat(WaitingText, TrainsText)),
+      loop3(Wx);
+
+    {Station, Platform, left} ->
+      {Key, Result} = lists:keyfind(Platform, 1, PlatformsView),
+      wxStaticText:setLabel(Result, string:concat("Peron ", integer_to_list(Platform))),
+      loop3(Wx);
+
+      {Station, TrainName, Request, waiting} ->
+        WaitingText = "Oczekujace \n",
+        TrainsText = getTrainsFromList(queue:to_list(Request)),
+        wxStaticText:setLabel(RequestsView, string:concat(WaitingText, TrainsText)),
+        loop3(Wx)
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 getTrainsFromList([]) ->
   [];
 
