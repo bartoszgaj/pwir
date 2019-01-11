@@ -133,9 +133,24 @@ loop2(Wx) ->
         loop2(Wx)
     end.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%USER%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%TODO
+
+%check user input
+checkPlatformInput() ->
+    {Type, List} = io:fread("Enter a number of platforms (1-6): ","~d"),
+    case {Type, List} of
+        {error,_} -> io:format("Enter a number~n"),
+                     checkPlatformInput();
+        {ok, [Num]} when Num>6 -> io:format("Enter a number less than 6~n"),
+                                  checkPlatformInput();
+        {ok, [Num]} when not is_integer(Num) -> io:format("Enter an integer~n"),
+                                                checkPlatformInput();
+        {ok, [Num]} when Num<1 -> io:format("Enter a number more than 0~n"),
+                                  checkPlatformInput();
+        {ok, [Num]} -> Num
+    end.
+
 user(Server, Frame) ->
-    {ok, [PlNo]} = io:fread("Number of platforms: ","~d"),
+    PlNo = checkPlatformInput(),
     station:start(self()),
     Pl = station_generator:make_platforms(PlNo),
     Wx = make_window3(Server, Frame, PlNo),

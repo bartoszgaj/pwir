@@ -74,8 +74,21 @@ init_user() ->
   io:format("generator: Init user"),
   loop_user().
 
+%check time input
+checkTimeInput() ->
+    {Type, List} = io:fread("Get out time: ", "~d"),
+    case {Type, List} of
+        {error, _} -> io:format("Enter a number~n"),
+                      checkTimeInput();
+        {ok, [Num]} when not is_integer(Num) -> io:format("Enter an integer~n"),
+                                                checkTimeInput();
+        {ok, [Num]} when Num<1 -> io:format("Enter a correct number~n"),
+                                  checkTimeInput();
+        {ok, [Num]} -> Num
+    end.      
+
 loop_user() ->
     {ok, [Name]} = io:fread("Train name: ","~s"),
-    {ok, [GetOutTime]} = io:fread("Get out time: ", "~d"),
+    GetOutTime = checkTimeInput(),
     make_train(Name, GetOutTime),
-    timer:apply_after(2000, ?MODULE, loop_user, []).
+    loop_user().
