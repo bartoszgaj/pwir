@@ -1,6 +1,7 @@
 -module(station_generator).
--export([generate_train/0, generate_platforms/0, start_link/0, start1/0, init/0, loop/0]).
+-export([generate_train/0, generate_platforms/0, make_platforms/1, start_link/0, start_link_user/0, init_user/0, loop_user/0, start1/0, init/0, loop/0]).
 -import(station, [start/0, add_platform/1, add_train/2]).
+
 
 for(0,_) ->
    [];
@@ -9,6 +10,7 @@ for(N,Term) when N > 0 ->
    station:add_platform(N),
    [Term|for(N-1,Term)].
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% AUTO %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %generuje losowa ilosc peronow 0-6
 platformNo() ->
     crypto:rand_uniform(1,6).
@@ -39,10 +41,6 @@ trainName() ->
 generate_train() ->
     station:add_train(trainName(), trainTime()).
 
-start1() ->
-  io:format("TESTStart"),
-  spawn(?MODULE, init, []).
-
 start_link() ->
   io:format("TESTSpawn"),
   spawn_link(?MODULE, init, []).
@@ -55,3 +53,42 @@ loop() ->
     io:format("TEST2"),
     generate_train(),
     timer:apply_after(3000, ?MODULE, loop, []).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%% USER INPUT %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%tworzy pociag o podanej przez usera nazwie i czasie odjazdu
+make_train(Name, GetOutTime) ->
+    station:add_train(Name, GetOutTime).
+%tworzy ilosc peronow podana przez uzytkownika
+make_platforms(PlNo) ->
+    for(PlNo, 1),
+    PlNo.
+ 
+start1() ->
+  io:format("TESTStart"),
+  spawn(?MODULE, init, []).
+
+start_link_user() ->
+   io:format("Spawn for user input"),
+   spawn_link(?MODULE, init_user, []).
+
+init_user() ->
+  io:format("generator: Init user"),
+  loop_user().
+
+%check time input
+checkTimeInput() ->
+    {Type, List} = io:fread("Get out time: ", "~d"),
+    case {Type, List} of
+        {error, _} -> io:format("Enter a number~n"),
+                      checkTimeInput();
+        {ok, [Num]} when not is_integer(Num) -> io:format("Enter an integer~n"),
+                                                checkTimeInput();
+        {ok, [Num]} when Num<1 -> io:format("Enter a correct number~n"),
+                                  checkTimeInput();
+        {ok, [Num]} -> Num
+    end.      
+
+loop_user() ->
+    {ok, [Name]} = io:fread("Train name: ","~s"),
+    GetOutTime = checkTimeInput(),
+    make_train(Name, GetOutTime),
+    loop_user().

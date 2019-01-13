@@ -61,7 +61,7 @@ loop({Trains,Platforms,Requests}, GuiPID) ->
 
     %Przypisanie pociagu z kolejki do konkretnego peronu
     {Pid, TrainPid, TrainName, TrainTime, Queue, Platform, update} ->
-        io:format("Im in station:update YO"),
+        io:format("Im in station:update"),
         PlatformPid = orddict:find(Platform, Platforms), %znajdz pid peronu
         if
             PlatformPid == error -> {error, noMatch}; %nie znaleziono

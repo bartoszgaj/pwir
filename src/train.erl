@@ -42,7 +42,7 @@ checkEmptyReq(Creator,Requests,Platform) ->
 
 %Pociąg jest już na peronie i odlicza swój GetOutTime do 0.
 onPlatform({Creator, Name, GetOutTime, Platform}) when GetOutTime /= 0 ->
-  io:format("Pociag ~p stoi na peronie ~p jeszcze: ~p sec~n",[Name, Platform, GetOutTime]), 
+  %io:format("Pociag ~p stoi na peronie ~p jeszcze: ~p sec~n",[Name, Platform, GetOutTime]), 
   %Po 1s wywołuje ponownie funkcję onPlatform z o jeden mniejszym czasem	
   timer:apply_after(1000, ?MODULE, onPlatform, [{Creator, Name, GetOutTime-1, Platform}]);
 
