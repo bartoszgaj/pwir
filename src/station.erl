@@ -7,6 +7,8 @@ loop({Trains,Platforms,Requests}, GuiPID) ->
   receive
     %Dodawania peronu
     %(źródło -> shell: funkcja add_platform/1)
+    {die} -> exit(kill);
+
     {Pid, MsgRef, {addPlatform, PlatformNumber}} ->
       %Utworzenie nowej instancji peronu
       PlatformPid = platform:start_link(PlatformNumber),
