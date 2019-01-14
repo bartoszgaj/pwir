@@ -42,11 +42,11 @@ generate_train() ->
     station:add_train(trainName(), trainTime()).
 
 start_link() ->
-  io:format("TESTSpawn"),
+  % io:format("TESTSpawn"),
   spawn(?MODULE, init, []).
 
 init() ->
-  io:format("TEST1"),
+  % io:format("TEST1"),
   loop().
 
 loop() ->
@@ -54,7 +54,7 @@ loop() ->
      {die} -> exit(kill)
 
      after 3000 ->
-       io:format("TEST2"),
+       % io:format("TEST2"),
        generate_train(),
        loop()
   end.
@@ -71,7 +71,7 @@ make_platforms(PlNo) ->
     PlNo.
 
 start1() ->
-  io:format("TESTStart"),
+  % io:format("TESTStart"),
   spawn(?MODULE, init, []).
 
 start_link_user() ->

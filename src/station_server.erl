@@ -75,7 +75,7 @@ init2(Server,Frame) ->
   PlNo = station_generator:generate_platforms(),
   Wx = make_window2(Server, Frame, PlNo),
   GeneratorPid = station_generator:start_link(),
-  loop2(Wx,StationPid, GeneratorPid).
+  loop2(Wx,StationPid, GeneratorPid,0,0).
 
 make_window2(Server , Frame, PlNo) ->
   End_Button = wxButton:new(Frame, 3, [{label, "End simulation"}, {pos, {500,50}}]),
@@ -90,16 +90,17 @@ make_window2(Server , Frame, PlNo) ->
 
   RequestsView = wxStaticText:new(Frame, 0, "Oczekujące", [{pos, {500, 350}}]),
 
+  StatisticsText = wxStaticText:new(Frame, 0, "", [{pos,{650,200}}]),
   wxFrame:show(Frame),
 
   % wxFrame:connect(Frame, close_window),
   % wxButton:connect(End_Button, command_button_clicked),
-  io:format("TEST"),
+  % io:format("TEST"),
   % {Server, Frame, End_Button, Time_Text, ClientsR, ClientsS}.
-  {Server, Frame, End_Button, PlatformsView, RequestsView}.
+  {Server, Frame, End_Button, PlatformsView, RequestsView, StatisticsText}.
 
-loop2(Wx,StationPid, GeneratorPid) ->
-  {_, Frame, End_Button, PlatformsView, RequestsView} = Wx,
+loop2(Wx,StationPid, GeneratorPid, TrainsNumber, TimeOnPlatforms) ->
+  {_, Frame, End_Button, PlatformsView, RequestsView,StatisticsText} = Wx,
   receive
     #wx{event=#wxClose{}} ->
         io:format("--closing window ~p-- ~n",[self()]),
@@ -113,30 +114,35 @@ loop2(Wx,StationPid, GeneratorPid) ->
     #wx{id = 3, event=#wxCommand{type = command_button_clicked}} ->
         GeneratorPid ! {die},
         StationPid ! {die},
+        % Text4 = "Statystyki: \n Liczba pociągów: ",
+        % Text5 = "Czas na peronach: ",
+        % Text1 = string:concat(Text4, TrainsNumber),
+        % Text2 = string:concat(Text1,Text5),
+        Text = lists:concat(["Statystyki: \nLiczba pociągów: ", TrainsNumber, "\nCzas na peronach: ", TimeOnPlatforms]),
+        wxStaticText:setLabel(StatisticsText, Text),
         io:format("ZAMKNIETE"),
+        loop2(Wx,StationPid, GeneratorPid,TrainsNumber, TimeOnPlatforms);
 
-        loop2(Wx,StationPid, GeneratorPid);
 
-
-    {Station, Platform, TrainName, Request, onPlatform} ->
+    {Station, Platform, TrainName, Request, TrainTime, onPlatform} ->
       {Key, Result} = lists:keyfind(Platform, 1, PlatformsView),
       PlatformText = string:concat(string:concat("Peron ", integer_to_list(Platform)),"\n"),
       wxStaticText:setLabel(Result, string:concat(PlatformText, TrainName)),
       WaitingText = "Oczekujace \n",
       TrainsText = getTrainsFromList(queue:to_list(Request)),
       wxStaticText:setLabel(RequestsView, string:concat(WaitingText, TrainsText)),
-      loop2(Wx,StationPid, GeneratorPid);
+      loop2(Wx,StationPid, GeneratorPid,TrainsNumber + 1, TimeOnPlatforms + TrainTime);
 
     {Station, Platform, left} ->
       {Key, Result} = lists:keyfind(Platform, 1, PlatformsView),
       wxStaticText:setLabel(Result, string:concat("Peron ", integer_to_list(Platform))),
-      loop2(Wx,StationPid, GeneratorPid);
+      loop2(Wx,StationPid, GeneratorPid,TrainsNumber, TimeOnPlatforms);
 
       {Station, TrainName, Request, waiting} ->
         WaitingText = "Oczekujace \n",
         TrainsText = getTrainsFromList(queue:to_list(Request)),
         wxStaticText:setLabel(RequestsView, string:concat(WaitingText, TrainsText)),
-        loop2(Wx,StationPid, GeneratorPid)
+        loop2(Wx,StationPid, GeneratorPid,TrainsNumber, TimeOnPlatforms)
     end.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%USER%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -161,7 +167,7 @@ user(Server, Frame) ->
     Pl = station_generator:make_platforms(PlNo),
     Wx = make_window3(Server, Frame, PlNo),
     UserPid = station_generator:start_link_user(),
-    loop3(Wx,StationPid,UserPid).
+    loop3(Wx,StationPid,UserPid,0,0).
 
 make_window3(Server , Frame, PlNo) ->
   End_Button = wxButton:new(Frame, 3, [{label, "End simulation"}, {pos, {500,50}}]),
@@ -174,13 +180,15 @@ make_window3(Server , Frame, PlNo) ->
   Platform1 = [{1, wxStaticText:new(Frame, 0, "Peron 1", [{pos, {200, 100}}])}|Platform2],
   PlatformsView = Platform1,
 
+StatisticsText = wxStaticText:new(Frame, 0, "", [{pos,{650,200}}]),
+
   RequestsView = wxStaticText:new(Frame, 0, "Oczekujące", [{pos, {500, 350}}]),
 
   wxFrame:show(Frame),
-  {Server, Frame, End_Button, PlatformsView, RequestsView}.
+  {Server, Frame, End_Button, PlatformsView, RequestsView, StatisticsText}.
 
-loop3(Wx,StationPid,UserPid) ->
-  {_, Frame, End_Button, PlatformsView, RequestsView} = Wx,
+loop3(Wx,StationPid,UserPid, TrainsNumber, TimeOnPlatforms) ->
+  {_, Frame, End_Button, PlatformsView, RequestsView, StatisticsText} = Wx,
   receive
 
 
@@ -197,30 +205,33 @@ loop3(Wx,StationPid,UserPid) ->
     #wx{id = 3, event=#wxCommand{type = command_button_clicked}} ->
       UserPid ! {die},
       StationPid ! {die},
+      Text = lists:concat(["Statystyki: \nLiczba pociągów: ", TrainsNumber, "\nCzas na peronach: ", TimeOnPlatforms]),
+      wxStaticText:setLabel(StatisticsText, Text),
+
       io:format("ZAMKNIETE"),
 
-      loop3(Wx,StationPid, UserPid);
+      loop3(Wx,StationPid, UserPid, TrainsNumber, TimeOnPlatforms);
 
 
-    {Station, Platform, TrainName, Request, onPlatform} ->
+    {Station, Platform, TrainName, Request, TrainTime, onPlatform} ->
       {Key, Result} = lists:keyfind(Platform, 1, PlatformsView),
       PlatformText = string:concat(string:concat("Peron ", integer_to_list(Platform)),"\n"),
       wxStaticText:setLabel(Result, string:concat(PlatformText, TrainName)),
       WaitingText = "Oczekujace \n",
       TrainsText = getTrainsFromList(queue:to_list(Request)),
       wxStaticText:setLabel(RequestsView, string:concat(WaitingText, TrainsText)),
-      loop3(Wx,StationPid,UserPid);
+      loop3(Wx,StationPid,UserPid, TrainsNumber+1, TimeOnPlatforms+TrainTime);
 
     {Station, Platform, left} ->
       {Key, Result} = lists:keyfind(Platform, 1, PlatformsView),
       wxStaticText:setLabel(Result, string:concat("Peron ", integer_to_list(Platform))),
-      loop3(Wx,StationPid,UserPid);
+      loop3(Wx,StationPid,UserPid, TrainsNumber, TimeOnPlatforms);
 
       {Station, TrainName, Request, waiting} ->
         WaitingText = "Oczekujace \n",
         TrainsText = getTrainsFromList(queue:to_list(Request)),
         wxStaticText:setLabel(RequestsView, string:concat(WaitingText, TrainsText)),
-        loop3(Wx,StationPid,UserPid)
+        loop3(Wx,StationPid,UserPid, TrainsNumber, TimeOnPlatforms)
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

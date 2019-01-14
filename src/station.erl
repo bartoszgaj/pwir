@@ -77,7 +77,7 @@ loop({Trains,Platforms,Requests}, GuiPID) ->
         end,
 
         % Gui MESSAGE ON PLATFORM
-        GuiPID ! {self(), Platform, TrainName, Queue, onPlatform},
+        GuiPID ! {self(), Platform, TrainName, Queue, TrainTime, onPlatform},
         loop({Trains, Platforms, Queue}, GuiPID);
 
 
@@ -87,7 +87,7 @@ loop({Trains,Platforms,Requests}, GuiPID) ->
       io:format("Pociag zglosil do stacji ze potrzebuje peron~n"),
       %Zgarniamy listę pidów wszystkich peronów do listy z naszego orddict
       PlatformsPids = orddict:fold(fun(Key,Platform,AccIn) -> [Platform|AccIn] end , [], Platforms),
-      io:format("Pidy znalezionych peronow ~p~n",[PlatformsPids]),
+      % io:format("Pidy znalezionych peronow ~p~n",[PlatformsPids]),
 
       %wywolujemy funkcje ktora znajdzie nasz peron i od razu go zarezerwuje
       PlatformNumber = searchAndReserve(TrainPid, TrainName, PlatformsPids),
@@ -110,7 +110,7 @@ loop({Trains,Platforms,Requests}, GuiPID) ->
           % GUI MESSAGE ON PLATFORM
 
           TrainPid ! {self(), goOn, PlatformNumber},
-          GuiPID ! {self(), PlatformNumber, TrainName, NewRequests, onPlatform}
+          GuiPID ! {self(), PlatformNumber, TrainName, NewRequests,TrainTime, onPlatform}
       end,
       %Wywolujemy główną petle programu stacji
       loop({Trains, Platforms, NewRequests}, GuiPID)
