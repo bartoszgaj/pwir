@@ -43,16 +43,24 @@ generate_train() ->
 
 start_link() ->
   io:format("TESTSpawn"),
-  spawn_link(?MODULE, init, []).
+  spawn(?MODULE, init, []).
 
 init() ->
   io:format("TEST1"),
   loop().
 
 loop() ->
-    io:format("TEST2"),
-    generate_train(),
-    timer:apply_after(3000, ?MODULE, loop, []).
+  receive
+     {die} -> exit(kill)
+
+     after 3000 ->
+       io:format("TEST2"),
+       generate_train(),
+       loop()
+  end.
+    % io:format("TEST2"),
+    % generate_train(),
+    % timer:apply_after(3000, ?MODULE, loop, []).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%% USER INPUT %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %tworzy pociag o podanej przez usera nazwie i czasie odjazdu
 make_train(Name, GetOutTime) ->
@@ -61,7 +69,7 @@ make_train(Name, GetOutTime) ->
 make_platforms(PlNo) ->
     for(PlNo, 1),
     PlNo.
- 
+
 start1() ->
   io:format("TESTStart"),
   spawn(?MODULE, init, []).
@@ -85,10 +93,15 @@ checkTimeInput() ->
         {ok, [Num]} when Num<1 -> io:format("Enter a correct number~n"),
                                   checkTimeInput();
         {ok, [Num]} -> Num
-    end.      
+    end.
 
 loop_user() ->
     {ok, [Name]} = io:fread("Train name: ","~s"),
     GetOutTime = checkTimeInput(),
-    make_train(Name, GetOutTime),
-    loop_user().
+
+    receive
+      {die} -> exit(simulationStopped)
+    after 1 ->
+      make_train(Name, GetOutTime),
+      loop_user()
+    end.
